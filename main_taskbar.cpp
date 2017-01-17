@@ -1,4 +1,3 @@
-
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <vector>
@@ -6,6 +5,7 @@
 using namespace std;
 using namespace cv;
 
+#define WRITE_IMG
 /// Global variables
 // For Taskbar
 int thres_slider, thres_slider_t;
@@ -138,8 +138,14 @@ void source_trackbar(int, void* ptr){
     // Create binary image from source image
     Mat bw;
     cvtColor(src, bw, CV_BGR2GRAY);
+    #ifdef WRITE_IMG
+    imwrite("gray.jpg", bw);
+    #endif
     // Convert to binary image for easier computation
     threshold(bw, bw, 40, 255, CV_THRESH_BINARY | CV_THRESH_OTSU);
+    #ifdef WRITE_IMG
+    imwrite("otsu.jpg", bw);
+    #endif
 
     if(invert_on)
 		bitwise_not(bw, bw);
@@ -149,20 +155,34 @@ void source_trackbar(int, void* ptr){
     // Perform the distance transform algorithm
     Mat dist;
     distanceTransform(bw, dist, CV_DIST_L2, 3);
+    
     // Normalize the distance image for range = {0.0, 1.0}
     // so we can visualize and threshold it
     normalize(dist, dist, 0, 1., NORM_MINMAX);
     // imshow("Distance Transform Image", dist);
-
+	#ifdef WRITE_IMG
+	Mat dist_write;
+    normalize(dist, dist_write, 0, 255, NORM_MINMAX);
+    imwrite("distance.jpg", dist_write);
+    #endif
     // Generate Markers
     // Threshold to obtain the peaks
     // This will be the markers for the foreground objects
     threshold(dist, dist, .4, 1., CV_THRESH_BINARY);
-
+    #ifdef WRITE_IMG
+	Mat thres_write;
+    normalize(dist, thres_write, 0, 255, NORM_MINMAX);
+    imwrite("thres_distance.jpg", thres_write);
+    #endif
     // Dilate a bit the dist image
     // thres_slider determines the degree of dilation
     Mat kernel1 = Mat::ones(thres_slider, thres_slider, CV_8UC1); 
     dilate(dist, dist, kernel1);
+    #ifdef WRITE_IMG
+	Mat dilate_write;
+    normalize(dist, dilate_write, 0, 255, NORM_MINMAX);
+    imwrite("dilate.jpg", dilate_write);
+    #endif
     // imshow("Peaks", dist);
 
     // Create the CV_8U version of the distance image
@@ -195,6 +215,9 @@ void source_trackbar(int, void* ptr){
     bitwise_not(mark, mark);
     // imshow("Markers_v2", mark); // uncomment this if you want to see how the mark
                                   // image looks like at that point
+    #ifdef WRITE_IMG
+    imwrite("watershed.jpg", mark);
+    #endif
     // Generate random colors
     vector<Vec3b> colors;
     for (size_t i = 0; i < contours.size(); i++)
@@ -208,6 +231,10 @@ void source_trackbar(int, void* ptr){
     Mat dst = Mat::zeros(markers.size(), CV_8UC3);
     
     partition(src, markers, dst, contours, colors);
+
+	#ifdef WRITE_IMG
+    imwrite("partitioned.jpg", dst);
+    #endif
 
     // Visualize the final partitioned image
     imshow(w_name, dst);
@@ -244,8 +271,12 @@ void source_trackbar(int, void* ptr){
 
     // Move local results to global for target
     segmentedPlanes_src = new Mat[partition_slider + 1];
-    for(int i=0; i<partition_slider + 1; i++)
+    for(int i=0; i<partition_slider + 1; i++){
     	segmentedPlanes_src[i] = segmentedPlanes[i].clone();
+		#ifdef WRITE_IMG
+	    imwrite(to_string(i) + "_segmented_plane.jpg", segmentedPlanes[i]);
+	    #endif
+    }
 
     segmentedColors_src = segmentedColors;
     partitionedSrc = dst.clone();
@@ -380,8 +411,13 @@ void target_trackbar(int, void* ptr){
     				segmentedPlanes[i].at<Vec3b>(row,col) = Vec3b(0,0,0);
 
     // Fill empty space with mean value
-    for(int i=0; i<partition_slider + 1; i++)
+    for(int i=0; i<partition_slider + 1; i++){
 	    fillSegmentedPlane(segmentedPlanes[i]);
+	    // imshow("seg" + to_string(i), segmentedPlanes[i]);
+	    #ifdef WRITE_IMG
+	    imwrite(to_string(i) + "_partition_mean.jpg", segmentedPlanes[i]);
+	    #endif
+    }
 
     // Move to global
     segmentedPlanes_target = new Mat[partition_slider + 1];
@@ -423,6 +459,9 @@ void target_trackbar(int, void* ptr){
 
     // mergedSwap = mergedSwap + laplac;
     imshow("swaped image", mergedSwap);
+    #ifdef WRITE_IMG
+    imwrite("swaped.jpg", mergedSwap);
+    #endif
 }
 
 // Generate mapping between regions
